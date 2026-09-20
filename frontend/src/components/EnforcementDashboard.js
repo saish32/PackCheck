@@ -2,88 +2,145 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { Icon } from "./Icons";
+import {
+  OutcomeDonutChart,
+  InspectorWorkloadBarChart,
+  CategoryOutcomeVisual,
+  CommonFailuresBarChart,
+  ChannelDistributionDonut,
+  ReviewerWorkloadQueue,
+} from "./AnalyticsVisuals";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
 
-export default function EnforcementDashboard() {
-  const { token, user, isAuthenticated } = useAuth();
+export default function EnforcementDashboard({ onNewInspection, onOpenInspection }) {
+  const { token, user, isAuthenticated, hasRole } = useAuth();
 
-  // Filter states
-  const [rangeType, setRangeType] = useState("today");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [appliedCustomStart, setAppliedCustomStart] = useState("");
-  const [appliedCustomEnd, setAppliedCustomEnd] = useState("");
+  // Range type: 'today', '7d', '30d', 'custom'
+  const [rangeType, setRangeType] = useState("30d");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [appliedCustom, setAppliedCustom] = useState(null);
 
-  // Data states
   const [data, setData] = useState(null);
+  const [recentInspections, setRecentInspections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  const fetchAnalytics = useCallback(async () => {
+  // System Health state (Authoritative from /api/v1/health and /api/v1/health/db)
+  const [healthStatus, setHealthStatus] = useState({
+    api: "checking",
+    db: "checking",
+    dbVersion: null,
+    latency: null,
+  });
+
+  const canCreate = hasRole(["inspector", "supervisor", "admin"]);
+
+  // Dynamic time-of-day greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
+  // Fetch live health
+  const fetchHealth = useCallback(async () => {
+    try {
+      const [appRes, dbRes] = await Promise.allSettled([
+        fetch(`${API_BASE_URL}/health`, { cache: "no-store" }),
+        fetch(`${API_BASE_URL}/health/db`, { cache: "no-store" }),
+      ]);
+
+      const apiOk = appRes.status === "fulfilled" && appRes.value.ok;
+      let dbOk = false;
+      let dbVer = null;
+      let latency = null;
+
+      if (dbRes.status === "fulfilled" && dbRes.value.ok) {
+        const dbData = await dbRes.value.json().catch(() => ({}));
+        dbOk = dbData.status === "connected";
+        dbVer = dbData.database_version;
+        latency = dbData.latency_ms;
+      }
+
+      setHealthStatus({
+        api: apiOk ? "operational" : "unreachable",
+        db: dbOk ? "connected" : "disconnected",
+        dbVersion: dbVer,
+        latency,
+      });
+    } catch {
+      setHealthStatus({ api: "unreachable", db: "disconnected", dbVersion: null, latency: null });
+    }
+  }, []);
+
+  // Fetch analytics & recent inspections
+  const fetchOverviewData = useCallback(async (isManualRefresh = false) => {
     if (!token) return;
-    setLoading(true);
+    if (isManualRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setErrorMsg(null);
 
+    let query = `range_type=${rangeType}`;
+    if (rangeType === "custom" && appliedCustom) {
+      query += `&start_date=${appliedCustom.start}&end_date=${appliedCustom.end}`;
+    }
+
     try {
-      let queryUrl = `${API_BASE_URL}/analytics/summary?range_type=${rangeType}`;
-      if (rangeType === "custom") {
-        if (!appliedCustomStart || !appliedCustomEnd) {
-          setLoading(false);
-          return;
-        }
-        queryUrl += `&start_date=${encodeURIComponent(appliedCustomStart)}&end_date=${encodeURIComponent(appliedCustomEnd)}`;
+      const [analyticsRes, inspectionsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/analytics/summary?${query}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        }),
+        fetch(`${API_BASE_URL}/inspections?page=1&page_size=6&sort_by=created_at&sort_dir=desc`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        }),
+      ]);
+
+      if (!analyticsRes.ok) {
+        const errJson = await analyticsRes.json().catch(() => ({}));
+        throw new Error(errJson.detail || "Unable to retrieve operational analytics.");
       }
 
-      const res = await fetch(queryUrl, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        cache: "no-store"
-      });
+      const aData = await analyticsRes.json();
+      setData(aData);
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.detail || `Analytics request failed with HTTP ${res.status}`);
+      if (inspectionsRes.ok) {
+        const iData = await inspectionsRes.json();
+        setRecentInspections(iData.items || []);
       }
-
-      const result = await res.json();
-      setData(result);
     } catch (err) {
-      setErrorMsg(err.message || "Failed to load enforcement analytics.");
+      setErrorMsg(err.message || "Failed to load operational overview.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [token, rangeType, appliedCustomStart, appliedCustomEnd]);
+  }, [token, rangeType, appliedCustom]);
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
+    fetchHealth();
+    fetchOverviewData();
+  }, [fetchHealth, fetchOverviewData]);
 
   const handleApplyCustom = (e) => {
     e.preventDefault();
-    if (!startDate || !endDate) {
-      setErrorMsg("Please select both start and end dates.");
+    if (!customStart || !customEnd) {
+      setErrorMsg("Please select both start and end dates for custom range.");
       return;
     }
-    if (startDate > endDate) {
+    if (customStart > customEnd) {
       setErrorMsg("Start date cannot be after end date.");
       return;
     }
-    setErrorMsg(null);
-    setAppliedCustomStart(startDate);
-    setAppliedCustomEnd(endDate);
-  };
-
-  const formatSafeNumber = (val) => {
-    if (val === null || val === undefined || isNaN(val)) return 0;
-    return Number(val).toLocaleString();
-  };
-
-  const calculatePct = (numerator, denominator) => {
-    if (!denominator || denominator === 0 || !numerator) return 0;
-    const pct = (numerator / denominator) * 100;
-    return Number.isFinite(pct) ? Math.round(pct) : 0;
+    setAppliedCustom({ start: customStart, end: customEnd });
   };
 
   const kpi = data?.kpi || {
@@ -92,633 +149,366 @@ export default function EnforcementDashboard() {
     potential_non_compliances: 0,
     review_required_findings: 0,
     unresolved_inspections: 0,
-    review_required_inspections: 0
+    review_required_inspections: 0,
   };
 
-  const outcomes = data?.outcome_distribution || {
-    satisfied: 0,
-    potential_non_compliance: 0,
-    review_required: 0,
-    total_findings: 0
+  const findingsEvaluated = data?.outcome_distribution?.total_findings ?? 0;
+  const isSystemHealthy = healthStatus.api === "operational" && healthStatus.db === "connected";
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "draft": return <span className="status-pill status-draft">Draft</span>;
+      case "in_progress": return <span className="status-pill status-in_progress">In Progress</span>;
+      case "pending_review": return <span className="status-pill status-pending_review">Pending Review</span>;
+      case "approved": return <span className="status-pill status-approved">Approved</span>;
+      case "rejected": return <span className="status-pill status-rejected">Rejected</span>;
+      case "reopened": return <span className="status-pill status-reopened">Reopened</span>;
+      default: return <span className="status-pill">{status}</span>;
+    }
   };
-
-  const totalFindings = outcomes.total_findings || 0;
-  const satPct = calculatePct(outcomes.satisfied, totalFindings);
-  const pncPct = calculatePct(outcomes.potential_non_compliance, totalFindings);
-  const revPct = calculatePct(outcomes.review_required, totalFindings);
-
-  const channels = data?.channel_distribution || { e_commerce: 0, physical: 0, unknown: 0 };
-  const totalChannels = (channels.e_commerce || 0) + (channels.physical || 0) + (channels.unknown || 0);
 
   return (
-    <div className="enforcement-dashboard-container" style={{ display: "flex", flexDirection: "column", gap: "24px", width: "100%", maxWidth: "1280px", margin: "0 auto", padding: "0 16px" }}>
-      {/* Top Header Card */}
-      <section className="glass-card" style={{ padding: "24px" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-              <span style={{ fontSize: "20px" }}>📊</span>
-              <h2 style={{ fontSize: "22px", fontWeight: "700", color: "var(--text-primary)" }}>
-                Enforcement Dashboard & Compliance Analytics
-              </h2>
-            </div>
-            <p style={{ fontSize: "14px", color: "var(--text-secondary)", margin: 0 }}>
-              Authoritative real-time aggregation of persisted inspections, deterministic compliance findings, and review workloads.
-            </p>
-          </div>
-
-          {/* Role Scoping Badge */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{
-              fontSize: "12px",
-              fontWeight: "600",
-              padding: "6px 12px",
-              borderRadius: "20px",
-              backgroundColor: data?.scoped_to_user ? "var(--badge-warning-bg)" : "var(--badge-success-bg)",
-              color: data?.scoped_to_user ? "var(--badge-warning-text)" : "var(--badge-success-text)",
-              border: `1px solid ${data?.scoped_to_user ? "var(--badge-warning-border)" : "var(--badge-success-border)"}`
-            }}>
-              {data?.scoped_to_user ? "🔒 Scoped: My Authorized Inspections" : "🌐 Scope: Organization-Wide Visibility"}
+    <div className="overview-command-center">
+      {/* 1. OPERATIONS OVERVIEW HEADER */}
+      <section className="overview-header-panel">
+        <div className="header-greeting-block">
+          <div className="header-scope-row">
+            <span className="overview-eyebrow">PACKAGING INSPECTION OPERATIONS OVERVIEW</span>
+            <span className="scope-badge-pill">
+              {data?.scoped_to_user ? "My authorized inspections" : "Organization-wide visibility"}
             </span>
-
-            <button
-              onClick={fetchAnalytics}
-              disabled={loading}
-              className="btn-secondary"
-              style={{ padding: "6px 14px", fontSize: "13px", display: "flex", alignItems: "center", gap: "6px", cursor: loading ? "not-allowed" : "pointer" }}
-              title="Refresh Analytics"
-            >
-              <span>🔄</span> {loading ? "Updating..." : "Refresh"}
-            </button>
           </div>
+          <h1 className="overview-welcome-title">
+            {getGreeting()}, {user?.full_name || "Inspector"}
+          </h1>
+          <p className="overview-subtitle">
+            Authoritative regulatory metrics, compliance findings distribution, and active inspection workload.
+          </p>
+          {data?.start_date && data?.end_date && (
+            <div className="reporting-period-notice font-mono">
+              Reporting period: {data.start_date.slice(0, 10)} to {data.end_date.slice(0, 10)} (UTC)
+            </div>
+          )}
         </div>
 
-        {/* Date Range Selector Controls */}
-        <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid var(--border-card)", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }} role="group" aria-label="Date range filters">
+        <div className="overview-action-controls">
+          {/* Time range selector */}
+          <div className="range-selector-strip" role="group" aria-label="Overview Time Range">
             {[
               { id: "today", label: "Today" },
               { id: "7d", label: "Last 7 Days" },
               { id: "30d", label: "Last 30 Days" },
               { id: "custom", label: "Custom Range" },
-            ].map((btn) => (
+            ].map((r) => (
               <button
-                key={btn.id}
+                key={r.id}
+                type="button"
+                className={`range-pill-btn ${rangeType === r.id ? "active" : ""}`}
                 onClick={() => {
-                  setRangeType(btn.id);
-                  if (btn.id !== "custom") {
-                    setErrorMsg(null);
+                  setRangeType(r.id);
+                  if (r.id !== "custom") {
+                    setAppliedCustom(null);
                   }
                 }}
-                className={`nav-tab-btn ${rangeType === btn.id ? "active" : ""}`}
-                style={{
-                  padding: "6px 16px",
-                  fontSize: "13px",
-                  borderRadius: "6px",
-                  fontWeight: rangeType === btn.id ? "600" : "400",
-                  backgroundColor: rangeType === btn.id ? "var(--accent-primary)" : "var(--bg-input)",
-                  color: rangeType === btn.id ? "#ffffff" : "var(--text-secondary)",
-                  border: "1px solid var(--border-card)",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease"
-                }}
               >
-                {btn.label}
+                {r.label}
               </button>
             ))}
           </div>
 
-          {/* Custom Date Inputs if Custom Selected */}
-          {rangeType === "custom" && (
-            <form onSubmit={handleApplyCustom} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px" }}>
-              <label style={{ fontSize: "12px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "6px" }}>
-                From:
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  style={{
-                    padding: "5px 10px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--border-card)",
-                    backgroundColor: "var(--bg-input)",
-                    color: "var(--text-primary)",
-                    fontSize: "13px"
-                  }}
-                  required
-                />
-              </label>
+          <div className="overview-btn-group">
+            <button
+              type="button"
+              className="btn-secondary btn-refresh"
+              onClick={() => fetchOverviewData(true)}
+              disabled={refreshing || loading}
+              title="Refresh operational metrics"
+            >
+              <Icon name="history" size={14} className={refreshing ? "spin-icon" : ""} />
+              <span>{refreshing ? "Updating..." : "Refresh"}</span>
+            </button>
 
-              <label style={{ fontSize: "12px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "6px" }}>
-                To:
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  style={{
-                    padding: "5px 10px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--border-card)",
-                    backgroundColor: "var(--bg-input)",
-                    color: "var(--text-primary)",
-                    fontSize: "13px"
-                  }}
-                  required
-                />
-              </label>
-
+            {canCreate && (
               <button
-                type="submit"
+                type="button"
                 className="btn-primary"
-                style={{ padding: "6px 14px", fontSize: "12px", cursor: "pointer" }}
+                onClick={onNewInspection}
               >
-                Apply
+                <Icon name="plus" size={15} />
+                <span>+ New Inspection</span>
               </button>
-            </form>
-          )}
-
-          {/* Active Period Label */}
-          {data?.start_date && (
-            <div style={{ fontSize: "12px", color: "var(--text-muted)", fontStyle: "italic" }}>
-              Period: {data.start_date.split("T")[0]} to {data.end_date.split("T")[0]} (UTC)
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </section>
 
-      {/* Error State Banner */}
-      {errorMsg && (
-        <div
-          role="alert"
-          style={{
-            padding: "14px 18px",
-            borderRadius: "8px",
-            backgroundColor: "var(--badge-danger-bg)",
-            color: "var(--badge-danger-text)",
-            border: "1px solid var(--badge-danger-border)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            fontSize: "14px"
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span>⚠️</span>
-            <strong>Error:</strong> {errorMsg}
+      {/* CUSTOM DATE RANGE FILTER BAR */}
+      {rangeType === "custom" && (
+        <form onSubmit={handleApplyCustom} className="custom-range-bar">
+          <div className="custom-range-inputs">
+            <div className="date-input-group">
+              <label htmlFor="custom-start-date" className="date-input-label">From (UTC):</label>
+              <input
+                id="custom-start-date"
+                type="date"
+                className="date-picker-input"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                required
+              />
+            </div>
+            <div className="date-input-group">
+              <label htmlFor="custom-end-date" className="date-input-label">To (UTC):</label>
+              <input
+                id="custom-end-date"
+                type="date"
+                className="date-picker-input"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                required
+              />
+            </div>
+            <button type="submit" className="btn-primary btn-sm btn-apply-dates">
+              Apply Date Range
+            </button>
           </div>
+        </form>
+      )}
+
+      {/* ERROR BANNER WITH RETRY */}
+      {errorMsg && (
+        <div className="alert-banner alert-danger">
+          <Icon name="alert" size={16} />
+          <span className="error-text-span">{errorMsg}</span>
           <button
-            onClick={fetchAnalytics}
-            style={{
-              padding: "4px 10px",
-              fontSize: "12px",
-              backgroundColor: "transparent",
-              color: "inherit",
-              border: "1px solid currentColor",
-              borderRadius: "4px",
-              cursor: "pointer"
-            }}
+            type="button"
+            className="btn-secondary btn-sm btn-retry"
+            onClick={() => fetchOverviewData(false)}
           >
             Retry
           </button>
         </div>
       )}
 
-      {/* Loading Skeleton */}
+      {/* LOADING SKELETON PLACEHOLDER */}
       {loading && !data && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="glass-card" style={{ padding: "20px", height: "130px", opacity: 0.6 }}>
-              <div style={{ height: "14px", width: "60%", backgroundColor: "var(--border-card)", borderRadius: "4px", marginBottom: "16px" }}></div>
-              <div style={{ height: "36px", width: "40%", backgroundColor: "var(--border-card)", borderRadius: "6px" }}></div>
-            </div>
-          ))}
+        <div className="dashboard-skeleton-wrap" aria-busy="true" aria-label="Loading analytics command center">
+          <div className="skeleton-kpi-grid">
+            <div className="skeleton-card" />
+            <div className="skeleton-card" />
+            <div className="skeleton-card" />
+            <div className="skeleton-card" />
+            <div className="skeleton-card" />
+          </div>
+          <div className="skeleton-charts-grid">
+            <div className="skeleton-card card-tall" />
+            <div className="skeleton-card card-tall" />
+          </div>
         </div>
       )}
 
-      {/* 5 SUMMARY KPI CARDS */}
-      {data && (
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "16px"
-          }}
-          aria-label="Summary KPI Cards"
-        >
-          {/* Card 1: Inspections in Period */}
-          <div className="glass-card" style={{ padding: "20px", borderLeft: "4px solid var(--accent-primary)" }} role="status">
-            <div style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Inspections in Period
-            </div>
-            <div style={{ fontSize: "32px", fontWeight: "800", color: "var(--text-primary)", margin: "8px 0" }}>
-              {formatSafeNumber(kpi.inspections_in_period)}
-            </div>
-            <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-              Created within selected range
+      {/* 2. KPI METRICS ROW (5 Cards matching authoritative backend fields) */}
+      <section className="overview-kpi-grid" aria-label="Key Performance Indicators">
+        {/* Card 1: Inspections in Period */}
+        <div className="kpi-metric-card">
+          <div className="kpi-header">
+            <span className="kpi-label">Inspections in Period</span>
+            <span className="kpi-icon-wrap icon-blue"><Icon name="inspections" size={17} /></span>
+          </div>
+          <div className="kpi-val font-mono">{kpi.inspections_in_period}</div>
+          <div className="kpi-footer">
+            <span>Recorded in selected range</span>
+          </div>
+        </div>
+
+        {/* Card 2: Findings Evaluated */}
+        <div className="kpi-metric-card">
+          <div className="kpi-header">
+            <span className="kpi-label">Findings Evaluated</span>
+            <span className="kpi-icon-wrap icon-purple"><Icon name="compliance" size={17} /></span>
+          </div>
+          <div className="kpi-val font-mono">{findingsEvaluated}</div>
+          <div className="kpi-footer">
+            <span>Latest authoritative compliance findings</span>
+          </div>
+        </div>
+
+        {/* Card 3: Potential Non-Compliance */}
+        <div className="kpi-metric-card">
+          <div className="kpi-header">
+            <span className="kpi-label">Potential Non-Compliance</span>
+            <span className="kpi-icon-wrap icon-red"><Icon name="alert" size={17} /></span>
+          </div>
+          <div className="kpi-val font-mono color-danger">{kpi.potential_non_compliances}</div>
+          <div className="kpi-footer">
+            <span>Rule discrepancies flagged</span>
+          </div>
+        </div>
+
+        {/* Card 4: Review Required */}
+        <div className="kpi-metric-card">
+          <div className="kpi-header">
+            <span className="kpi-label">Review Required</span>
+            <span className="kpi-icon-wrap icon-amber"><Icon name="clock" size={17} /></span>
+          </div>
+          <div className="kpi-val font-mono color-warning">{kpi.review_required_findings}</div>
+          <div className="kpi-footer">
+            <span>{kpi.review_required_inspections} inspections requiring review</span>
+          </div>
+        </div>
+
+        {/* Card 5: Unresolved Inspections */}
+        <div className="kpi-metric-card">
+          <div className="kpi-header">
+            <span className="kpi-label">Unresolved Inspections</span>
+            <span className="kpi-icon-wrap icon-neutral"><Icon name="overview" size={17} /></span>
+          </div>
+          <div className="kpi-val font-mono">{kpi.unresolved_inspections}</div>
+          <div className="kpi-footer">
+            <span>Draft, in progress, pending, or reopened</span>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. VISUALIZATIONS GRID (5 Visuals + 1 Operational Review Queue) */}
+      <section className="analytics-visuals-section" aria-label="Operations Visualizations">
+        {/* ROW 1: Primary Outcome Donut + Inspector Workload Bar Chart */}
+        <div className="analytics-grid-two-col">
+          <OutcomeDonutChart data={data?.outcome_distribution} />
+          <InspectorWorkloadBarChart items={data?.inspector_workload || []} />
+        </div>
+
+        {/* ROW 2: Most Frequent Non-Compliance Rules + Category Outcome Breakdown */}
+        <div className="analytics-grid-two-col">
+          <CommonFailuresBarChart items={data?.common_failures || []} />
+          <CategoryOutcomeVisual items={data?.category_trends || []} />
+        </div>
+
+        {/* ROW 3: Channel Distribution + Operational Review Queue */}
+        <div className="analytics-grid-two-col">
+          <ChannelDistributionDonut data={data?.channel_distribution} />
+          <ReviewerWorkloadQueue items={data?.reviewer_workload || []} />
+        </div>
+      </section>
+
+      {/* 4. LOWER OPERATIONS SECTION: RECENT INSPECTIONS & SYSTEM TELEMETRY */}
+      <div className="overview-split-layout">
+        {/* RECENT INSPECTION RECORDS */}
+        <section className="enterprise-panel overview-recent-inspections" aria-label="Recent Inspection Records">
+          <div className="panel-header">
+            <div>
+              <h3>Recent Inspection Records</h3>
+              <span className="sub-count">{recentInspections.length} most recent records in scope</span>
             </div>
           </div>
 
-          {/* Card 2: Satisfied Checks */}
-          <div className="glass-card" style={{ padding: "20px", borderLeft: "4px solid var(--badge-success-text)" }} role="status">
-            <div style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Satisfied Checks
-            </div>
-            <div style={{ fontSize: "32px", fontWeight: "800", color: "var(--badge-success-text)", margin: "8px 0" }}>
-              {formatSafeNumber(kpi.satisfied_checks)}
-            </div>
-            <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-              {totalFindings > 0 ? `${satPct}% of authoritative findings` : "Deterministic verified rules"}
-            </div>
-          </div>
-
-          {/* Card 3: Potential Non-Compliances */}
-          <div className="glass-card" style={{ padding: "20px", borderLeft: "4px solid var(--badge-danger-text)" }} role="status">
-            <div style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Potential Non-Compliances
-            </div>
-            <div style={{ fontSize: "32px", fontWeight: "800", color: "var(--badge-danger-text)", margin: "8px 0" }}>
-              {formatSafeNumber(kpi.potential_non_compliances)}
-            </div>
-            <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-              {totalFindings > 0 ? `${pncPct}% of authoritative findings` : "Detected requirement breaches"}
-            </div>
-          </div>
-
-          {/* Card 4: Review Required */}
-          <div className="glass-card" style={{ padding: "20px", borderLeft: "4px solid var(--badge-warning-text)" }} role="status">
-            <div style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Review Required
-            </div>
-            <div style={{ fontSize: "32px", fontWeight: "800", color: "var(--badge-warning-text)", margin: "8px 0" }}>
-              {formatSafeNumber(kpi.review_required_findings)}
-            </div>
-            <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-              {formatSafeNumber(kpi.review_required_inspections)} inspections need supervisor review
-            </div>
-          </div>
-
-          {/* Card 5: Unresolved Inspections */}
-          <div className="glass-card" style={{ padding: "20px", borderLeft: "4px solid #6366f1" }} role="status">
-            <div style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Unresolved Inspections
-            </div>
-            <div style={{ fontSize: "32px", fontWeight: "800", color: "#6366f1", margin: "8px 0" }}>
-              {formatSafeNumber(kpi.unresolved_inspections)}
-            </div>
-            <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-              Draft, In-Progress, or Pending Review
-            </div>
+          <div className="panel-table-wrap">
+            {recentInspections.length === 0 ? (
+              <div className="table-empty-notice">
+                <p>No recent inspections found for this period.</p>
+              </div>
+            ) : (
+              <table className="enterprise-table">
+                <thead>
+                  <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Product & Brand</th>
+                    <th scope="col">Batch</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Date</th>
+                    <th scope="col" style={{ textAlign: "right" }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentInspections.map((ins) => (
+                    <tr key={ins.inspection_id} className="interactive-row">
+                      <td className="font-mono">
+                        <span className="record-id-badge">{ins.inspection_id}</span>
+                      </td>
+                      <td>
+                        <div className="table-main-text font-medium">{ins.product_name}</div>
+                        <div className="table-sub-text">{ins.brand_name || "Unbranded"}</div>
+                      </td>
+                      <td className="font-mono">{ins.batch_number || "—"}</td>
+                      <td>{getStatusBadge(ins.status)}</td>
+                      <td className="font-mono">{new Date(ins.created_at).toLocaleDateString()}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          type="button"
+                          className="btn-row-action"
+                          onClick={() => onOpenInspection && onOpenInspection(ins)}
+                          title="Open inspection workspace"
+                        >
+                          <span>Open Inspection</span>
+                          <Icon name="arrowRight" size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </section>
-      )}
 
-      {/* Main Visualizations Row: Outcome Distribution & Top Non-Compliances */}
-      {data && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: "24px" }}>
-          {/* Chart A: Compliance Outcome Distribution */}
-          <section className="glass-card" style={{ padding: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-              <h3 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text-primary)" }}>
-                Compliance Outcome Distribution
-              </h3>
-              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                Total Findings: {formatSafeNumber(totalFindings)}
+        {/* SYSTEM & REGULATORY TELEMETRY */}
+        <aside className="overview-telemetry-sidebar" aria-label="System and Regulatory Telemetry">
+          {/* Authoritative System Health */}
+          <div className="enterprise-panel">
+            <div className="panel-header">
+              <h3>System Health</h3>
+              <span className={`status-pill ${isSystemHealthy ? "status-approved" : "status-rejected"}`}>
+                {isSystemHealthy ? "Operational" : "Service Issue"}
               </span>
             </div>
-
-            {totalFindings === 0 ? (
-              <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: "14px" }}>
-                No compliance findings recorded for this period.
-              </div>
-            ) : (
-              <div>
-                {/* Horizontal Segmented Bar */}
-                <div
-                  style={{
-                    display: "flex",
-                    height: "28px",
-                    borderRadius: "8px",
-                    overflow: "hidden",
-                    backgroundColor: "var(--bg-input)",
-                    marginBottom: "20px"
-                  }}
-                  role="progressbar"
-                  aria-label="Compliance Outcome Distribution Bar"
-                >
-                  {satPct > 0 && (
-                    <div
-                      style={{ width: `${satPct}%`, backgroundColor: "var(--badge-success-text)", transition: "width 0.4s ease" }}
-                      title={`SATISFIED: ${outcomes.satisfied} (${satPct}%)`}
-                    />
-                  )}
-                  {pncPct > 0 && (
-                    <div
-                      style={{ width: `${pncPct}%`, backgroundColor: "var(--badge-danger-text)", transition: "width 0.4s ease" }}
-                      title={`POTENTIAL_NON_COMPLIANCE: ${outcomes.potential_non_compliance} (${pncPct}%)`}
-                    />
-                  )}
-                  {revPct > 0 && (
-                    <div
-                      style={{ width: `${revPct}%`, backgroundColor: "var(--badge-warning-text)", transition: "width 0.4s ease" }}
-                      title={`REVIEW_REQUIRED: ${outcomes.review_required} (${revPct}%)`}
-                    />
-                  )}
+            <div className="panel-body">
+              <dl className="key-value-list">
+                <div className="kv-row">
+                  <dt>API Service</dt>
+                  <dd className="status-val-row">
+                    <span className={`status-dot-sm ${healthStatus.api === "operational" ? "dot-online" : "dot-offline"}`} />
+                    <span>{healthStatus.api === "operational" ? "Operational (Healthy)" : "Unavailable"}</span>
+                  </dd>
                 </div>
-
-                {/* Legend List */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ width: "12px", height: "12px", borderRadius: "3px", backgroundColor: "var(--badge-success-text)" }}></span>
-                      <span style={{ color: "var(--text-primary)", fontWeight: "500" }}>SATISFIED</span>
-                    </div>
-                    <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                      <span style={{ fontWeight: "700", color: "var(--text-primary)" }}>{formatSafeNumber(outcomes.satisfied)}</span>
-                      <span style={{ color: "var(--text-muted)", fontSize: "13px", minWidth: "40px", textAlign: "right" }}>{satPct}%</span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ width: "12px", height: "12px", borderRadius: "3px", backgroundColor: "var(--badge-danger-text)" }}></span>
-                      <span style={{ color: "var(--text-primary)", fontWeight: "500" }}>POTENTIAL_NON_COMPLIANCE</span>
-                    </div>
-                    <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                      <span style={{ fontWeight: "700", color: "var(--text-primary)" }}>{formatSafeNumber(outcomes.potential_non_compliance)}</span>
-                      <span style={{ color: "var(--text-muted)", fontSize: "13px", minWidth: "40px", textAlign: "right" }}>{pncPct}%</span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ width: "12px", height: "12px", borderRadius: "3px", backgroundColor: "var(--badge-warning-text)" }}></span>
-                      <span style={{ color: "var(--text-primary)", fontWeight: "500" }}>REVIEW_REQUIRED</span>
-                    </div>
-                    <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                      <span style={{ fontWeight: "700", color: "var(--text-primary)" }}>{formatSafeNumber(outcomes.review_required)}</span>
-                      <span style={{ color: "var(--text-muted)", fontSize: "13px", minWidth: "40px", textAlign: "right" }}>{revPct}%</span>
-                    </div>
-                  </div>
+                <div className="kv-row">
+                  <dt>MySQL Database</dt>
+                  <dd className="status-val-row">
+                    <span className={`status-dot-sm ${healthStatus.db === "connected" ? "dot-online" : "dot-offline"}`} />
+                    <span>
+                      {healthStatus.db === "connected"
+                        ? `Connected (${healthStatus.latency || 0}ms)`
+                        : "Disconnected"}
+                    </span>
+                  </dd>
                 </div>
-              </div>
-            )}
-          </section>
-
-          {/* Chart B: Common Requirement Failures */}
-          <section className="glass-card" style={{ padding: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-              <div>
-                <h3 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text-primary)", margin: 0 }}>
-                  Common Requirement Failures
-                </h3>
-                <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "2px" }}>
-                  Ranked by confirmed POTENTIAL_NON_COMPLIANCE findings
+                <div className="kv-row">
+                  <dt>Configured Rulebook</dt>
+                  <dd className="font-mono">LMPC v2026.09.16</dd>
                 </div>
+                <div className="kv-row">
+                  <dt>Evaluation Engine</dt>
+                  <dd>Deterministic Rules 6, 7, 8, 9, 10A, 11, 18, 22</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+
+          {/* Regulatory Standards Context */}
+          <div className="enterprise-panel" style={{ marginTop: "1.25rem" }}>
+            <div className="panel-header">
+              <h3>Regulatory Standards Context</h3>
+            </div>
+            <div className="panel-body">
+              <p className="sub-text">
+                PackCheck evaluates packaging under the Legal Metrology (Packaged Commodities) Rules, 2011 and configured amendments, with First Schedule Maximum Permissible Error (MPE) analysis and verified high-resolution evidence preservation.
+              </p>
+              <div className="scope-badge-pill" style={{ marginTop: "0.75rem" }}>
+                <span>{data?.scoped_to_user ? "Scoped to Authorized Inspections" : "Organization-Wide Oversight"}</span>
               </div>
             </div>
-
-            {(!data.common_failures || data.common_failures.length === 0) ? (
-              <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: "14px" }}>
-                <span>✅</span> Zero confirmed non-compliances recorded in this period.
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                {data.common_failures.slice(0, 6).map((item, idx) => {
-                  const maxCount = data.common_failures[0]?.count || 1;
-                  const barWidth = Math.max(8, Math.round((item.count / maxCount) * 100));
-                  return (
-                    <div key={`${item.requirement_key}-${idx}`} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-                        <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>
-                          {item.title}
-                        </span>
-                        <span style={{ fontWeight: "700", color: "var(--badge-danger-text)" }}>
-                          {formatSafeNumber(item.count)} cases
-                        </span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ flex: 1, height: "10px", borderRadius: "5px", backgroundColor: "var(--bg-input)", overflow: "hidden" }}>
-                          <div
-                            style={{
-                              width: `${barWidth}%`,
-                              height: "100%",
-                              backgroundColor: "var(--badge-danger-text)",
-                              borderRadius: "5px",
-                              transition: "width 0.4s ease"
-                            }}
-                          />
-                        </div>
-                        <span style={{ fontSize: "11px", color: "var(--text-muted)", minWidth: "48px", textAlign: "right" }}>
-                          Rule {item.rule_no}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        </div>
-      )}
-
-      {/* Second Row: Commodity Category Trends & Channel Distribution */}
-      {data && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: "24px" }}>
-          {/* Chart C: Commodity Category Trends */}
-          <section className="glass-card" style={{ padding: "24px" }}>
-            <h3 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text-primary)", marginBottom: "16px" }}>
-              Commodity Category Trends
-            </h3>
-
-            {(!data.category_trends || data.category_trends.length === 0) ? (
-              <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: "14px" }}>
-                No category data available for this period.
-              </div>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid var(--border-card)", textAlign: "left" }}>
-                      <th style={{ padding: "8px 10px", color: "var(--text-secondary)", fontWeight: "600" }}>Category</th>
-                      <th style={{ padding: "8px 10px", color: "var(--text-secondary)", fontWeight: "600", textAlign: "center" }}>Total</th>
-                      <th style={{ padding: "8px 10px", color: "var(--badge-success-text)", fontWeight: "600", textAlign: "center" }}>Satisfied</th>
-                      <th style={{ padding: "8px 10px", color: "var(--badge-danger-text)", fontWeight: "600", textAlign: "center" }}>PNC</th>
-                      <th style={{ padding: "8px 10px", color: "var(--badge-warning-text)", fontWeight: "600", textAlign: "center" }}>Review</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.category_trends.map((cat, i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid var(--border-card)" }}>
-                        <td style={{ padding: "10px", fontWeight: "500", color: "var(--text-primary)" }}>{cat.category}</td>
-                        <td style={{ padding: "10px", textAlign: "center", fontWeight: "700", color: "var(--text-primary)" }}>
-                          {formatSafeNumber(cat.total_inspections)}
-                        </td>
-                        <td style={{ padding: "10px", textAlign: "center", color: "var(--badge-success-text)", fontWeight: "600" }}>
-                          {formatSafeNumber(cat.satisfied_count)}
-                        </td>
-                        <td style={{ padding: "10px", textAlign: "center", color: "var(--badge-danger-text)", fontWeight: "600" }}>
-                          {formatSafeNumber(cat.potential_non_compliance_count)}
-                        </td>
-                        <td style={{ padding: "10px", textAlign: "center", color: "var(--badge-warning-text)", fontWeight: "600" }}>
-                          {formatSafeNumber(cat.review_required_count)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          {/* Chart D: Inspection Channel (E-Commerce vs Physical) */}
-          <section className="glass-card" style={{ padding: "24px" }}>
-            <h3 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text-primary)", marginBottom: "4px" }}>
-              Inspection Channel Distribution
-            </h3>
-            <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "18px" }}>
-              Authoritative channel breakdown derived from inspection rule context.
-            </p>
-
-            {totalChannels === 0 ? (
-              <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: "14px" }}>
-                No inspection channel data available.
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                {/* Physical */}
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "6px" }}>
-                    <span style={{ fontWeight: "600", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
-                      🏪 Physical Retail Inspection
-                    </span>
-                    <span style={{ fontWeight: "700", color: "var(--text-primary)" }}>
-                      {formatSafeNumber(channels.physical)} ({calculatePct(channels.physical, totalChannels)}%)
-                    </span>
-                  </div>
-                  <div style={{ height: "10px", borderRadius: "5px", backgroundColor: "var(--bg-input)", overflow: "hidden" }}>
-                    <div style={{ width: `${calculatePct(channels.physical, totalChannels)}%`, height: "100%", backgroundColor: "var(--accent-primary)" }}></div>
-                  </div>
-                </div>
-
-                {/* E-Commerce */}
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "6px" }}>
-                    <span style={{ fontWeight: "600", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
-                      🛒 E-Commerce Marketplace Listing
-                    </span>
-                    <span style={{ fontWeight: "700", color: "var(--text-primary)" }}>
-                      {formatSafeNumber(channels.e_commerce)} ({calculatePct(channels.e_commerce, totalChannels)}%)
-                    </span>
-                  </div>
-                  <div style={{ height: "10px", borderRadius: "5px", backgroundColor: "var(--bg-input)", overflow: "hidden" }}>
-                    <div style={{ width: `${calculatePct(channels.e_commerce, totalChannels)}%`, height: "100%", backgroundColor: "#8b5cf6" }}></div>
-                  </div>
-                </div>
-
-                {/* Unknown / Data Unavailable */}
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "6px" }}>
-                    <span style={{ fontWeight: "500", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "6px" }}>
-                      ℹ️ Channel Unspecified / Unavailable
-                    </span>
-                    <span style={{ fontWeight: "600", color: "var(--text-muted)" }}>
-                      {formatSafeNumber(channels.unknown)} ({calculatePct(channels.unknown, totalChannels)}%)
-                    </span>
-                  </div>
-                  <div style={{ height: "10px", borderRadius: "5px", backgroundColor: "var(--bg-input)", overflow: "hidden" }}>
-                    <div style={{ width: `${calculatePct(channels.unknown, totalChannels)}%`, height: "100%", backgroundColor: "var(--text-muted)" }}></div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-      )}
-
-      {/* Third Row: Neutral Workload Metrics */}
-      {data && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: "24px" }}>
-          {/* Inspector Workload */}
-          <section className="glass-card" style={{ padding: "24px" }}>
-            <h3 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text-primary)", marginBottom: "4px" }}>
-              Field Inspection Workload
-            </h3>
-            <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "16px" }}>
-              Neutral distribution of inspections logged per inspector.
-            </p>
-
-            {(!data.inspector_workload || data.inspector_workload.length === 0) ? (
-              <div style={{ padding: "30px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: "14px" }}>
-                No inspector activity recorded in this period.
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {data.inspector_workload.map((item, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "10px 14px",
-                      borderRadius: "6px",
-                      backgroundColor: "var(--bg-input)"
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ fontSize: "16px" }}>👤</span>
-                      <span style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-primary)" }}>{item.inspector_name}</span>
-                    </div>
-                    <span style={{ fontSize: "13px", fontWeight: "700", color: "var(--accent-primary)" }}>
-                      {formatSafeNumber(item.inspection_count)} inspections
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Reviewer Workload */}
-          <section className="glass-card" style={{ padding: "24px" }}>
-            <h3 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text-primary)", marginBottom: "4px" }}>
-              Pending Review Workload
-            </h3>
-            <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "16px" }}>
-              Inspections currently awaiting supervisor review and sign-off.
-            </p>
-
-            {(!data.reviewer_workload || data.reviewer_workload.length === 0) ? (
-              <div style={{ padding: "30px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: "14px" }}>
-                <span>✨</span> All reviews up to date. Zero inspections pending review.
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {data.reviewer_workload.map((item, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "10px 14px",
-                      borderRadius: "6px",
-                      backgroundColor: "var(--bg-input)"
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ fontSize: "16px" }}>⏳</span>
-                      <span style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-primary)" }}>{item.reviewer_name}</span>
-                    </div>
-                    <span style={{ fontSize: "13px", fontWeight: "700", color: "var(--badge-warning-text)" }}>
-                      {formatSafeNumber(item.pending_count)} pending
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-      )}
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

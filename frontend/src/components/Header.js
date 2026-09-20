@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "./AuthModal";
+import ThemeToggle from "./ThemeToggle";
 
 const NAV_TABS = [
   { id: "inspections", label: "Inspections" },
@@ -79,18 +80,7 @@ export default function Header({ activeTab, setActiveTab }) {
         </nav>
 
         <div className="header-controls">
-          <button
-            id="theme-toggle-btn"
-            type="button"
-            className="btn-theme-toggle"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === "light" ? "night" : "day"} mode`}
-            title={`Switch to ${theme === "light" ? "night" : "day"} mode`}
-            suppressHydrationWarning
-          >
-            <span className="theme-icon" aria-hidden="true">{mounted ? (theme === "light" ? "☾" : "☀") : "☾"}</span>
-            <span>{mounted ? (theme === "light" ? "Night" : "Day") : "Night"}</span>
-          </button>
+          <ThemeToggle />
 
           {mounted && isAuthenticated ? (
             <div className="user-profile-pill">

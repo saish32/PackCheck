@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth, DEMO_USERS } from "@/context/AuthContext";
+import { Icon } from "./Icons";
 
 export default function AuthModal({ isOpen, onClose }) {
   const { login, switchDemoAccount, authError } = useAuth();
@@ -40,53 +41,63 @@ export default function AuthModal({ isOpen, onClose }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content glass-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <div className="modal-dialog-box auth-dialog" onClick={(e) => e.stopPropagation()}>
+        {/* MODAL HEADER */}
+        <div className="modal-dialog-header">
           <div>
-            <h3 className="modal-title">Sign In to PackCheck</h3>
-            <p className="modal-subtitle">Enterprise Packaging Compliance & Inspection</p>
+            <span className="modal-eyebrow">STATUTORY VERIFICATION PORTAL</span>
+            <h3 id="auth-modal-title" className="modal-title">PackCheck Sign In</h3>
           </div>
-          <button className="btn-close" onClick={onClose}>✕</button>
+          <button type="button" className="btn-close-dialog" onClick={onClose} aria-label="Close dialog">
+            ✕
+          </button>
         </div>
 
+        {/* ERROR BANNER */}
         {(localErr || authError) && (
-          <div className="alert-box alert-danger">
-            ⚠️ {localErr || authError}
+          <div className="alert-banner alert-danger" style={{ marginBottom: "1rem" }}>
+            <Icon name="alert" size={16} />
+            <span>{localErr || authError}</span>
           </div>
         )}
 
-        {/* 1-Click Demo Accounts (Local / SIH Presentation Only) */}
+        {/* 1-CLICK DEMO MODE ROLE SWITCHER */}
         {enableDemoAccounts && (
-          <div className="demo-accounts-panel">
-            <div className="demo-accounts-title">
-              ⚡ 1-Click Role Switcher (SIH / Demo Mode Only)
+          <div className="demo-accounts-callout">
+            <div className="demo-callout-header">
+              <Icon name="sparkles" size={14} />
+              <span>DEMO MODE — SIH Presentation Role Switcher</span>
             </div>
-            <div className="demo-grid">
+            <p className="demo-callout-desc">
+              Select any pre-configured statutory inspection persona to test role-based permissions:
+            </p>
+            <div className="demo-roles-grid">
               {DEMO_USERS.map((demo) => (
                 <button
                   key={demo.role}
                   type="button"
-                  className="btn-demo-account"
+                  className="btn-demo-persona"
                   onClick={() => handleDemoClick(demo)}
                   disabled={loading}
                 >
-                  <div className="demo-badge-row">
-                    <span className="demo-badge">{demo.badge}</span>
-                    <span className="demo-name">{demo.name}</span>
+                  <div className="persona-top">
+                    <span className="persona-badge">{demo.badge}</span>
+                    <span className="persona-name">{demo.name}</span>
                   </div>
-                  <div className="demo-desc">{demo.desc}</div>
+                  <span className="persona-desc">{demo.desc}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Standard Manual Login Form */}
-        <form onSubmit={handleSubmit} className="auth-form">
+        {/* STANDARD MANUAL LOGIN FORM */}
+        <form onSubmit={handleSubmit} className="auth-credential-form">
           <div className="form-group">
-            <label className="form-label">Email Address</label>
+            <label className="form-label" htmlFor="auth-email">Email Address <span className="req-marker">*</span></label>
             <input
+              id="auth-email"
               type="email"
               className="form-input"
               value={email}
@@ -97,13 +108,14 @@ export default function AuthModal({ isOpen, onClose }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label" htmlFor="auth-password">Password <span className="req-marker">*</span></label>
             <input
+              id="auth-password"
               type="password"
               className="form-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="Enter your authorized password"
               required
             />
           </div>
@@ -112,8 +124,9 @@ export default function AuthModal({ isOpen, onClose }) {
             type="submit"
             className="btn-primary btn-full"
             disabled={loading}
+            style={{ marginTop: "1rem" }}
           >
-            {loading ? "Authenticating..." : "Sign In"}
+            {loading ? "Authenticating Session..." : "Sign In to Workspace"}
           </button>
         </form>
       </div>

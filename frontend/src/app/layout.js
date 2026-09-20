@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "PackCheck - Automated Packaging Inspection & Compliance Engine",
-  description: "Next-generation packaging verification, OCR screening, and regulatory compliance platform.",
+  title: "PackCheck — Evidence-First Packaging Compliance",
+  description: "Evidence-first packaging compliance inspection platform for evidence capture, declaration extraction, rule-based evaluation, and verifiable reporting.",
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico",
