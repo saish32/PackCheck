@@ -52,7 +52,10 @@ self.addEventListener("fetch", (event) => {
           .catch(() => {});
         return cachedResponse;
       }
-      return fetch(event.request);
+      return fetch(event.request).catch((err) => {
+        // Gracefully handle network interruptions without unhandled promise rejections
+        return caches.match("/") || new Response("Network unavailable", { status: 503 });
+      });
     })
   );
 });
