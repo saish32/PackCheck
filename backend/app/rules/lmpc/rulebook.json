@@ -1,0 +1,713 @@
+{
+    "rulebook_id": "LMPC_CENTRAL_PACKAGED_COMMODITIES",
+    "packcheck_rulebook_version": "2026.09.16",
+    "jurisdiction": "India",
+    "instrument": "Legal Metrology (Packaged Commodities) Rules, 2011",
+    "as_of_date": "2026-09-16",
+    "status_policy": {
+        "ACTIVE": "May be applied when its effective date is on or before the inspection date.",
+        "SCHEDULED": "Stored for future activation only; must not be applied before effective date.",
+        "REPEALED": "Historical reference only; must not be applied to current inspections unless a savings provision is explicitly relevant.",
+        "NOT_AUTOMATED": "Included in the legal corpus but intentionally not converted into an automatic pass/fail test. Requires documentary or statutory-authority action.",
+        "OUTSIDE_CENTRAL_LMPC_SCOPE": "Do not infer compliance under another sector law from LMPC data alone. Route to REVIEW_REQUIRED."
+    },
+    "legal_boundary": "PackCheck is an inspection-assistance and evidence-screening system. It does not issue a statutory certification, pronounce a package legal or illegal, order seizure, or impose penalties. Automated outcomes are SATISFIED, POTENTIAL_NON_COMPLIANCE, or REVIEW_REQUIRED.",
+    "source_hierarchy": [
+        "Department of Consumer Affairs official Legal Metrology page",
+        "Official India Code / Gazette instruments and amendments",
+        "State Legal Metrology pages only for supplementary explanatory material, never to override central law",
+        "No commercial or secondary source may override an official instrument"
+    ],
+    "source_instruments": [
+        {
+            "id": "LMPC-2011-BASE",
+            "title": "Legal Metrology (Packaged Commodities) Rules, 2011",
+            "gazette_date": "2011-03-07",
+            "effective_from": "2011-04-01",
+            "status": "ACTIVE",
+            "source_url": "https://consumeraffairs.gov.in/pages/legal-metrology-act"
+        },
+        {
+            "id": "GSR-629-E-2017",
+            "title": "LMPC amendment affecting definitions, declarations and principal-display-panel provisions",
+            "gazette_date": "2017-06-23",
+            "effective_from": "2018-01-01",
+            "status": "ACTIVE",
+            "source_url": "https://consumeraffairs.gov.in/pages/legal-metrology-act"
+        },
+        {
+            "id": "GSR-779-E-2021",
+            "title": "LMPC amendment effective from 2022-10-01",
+            "gazette_date": "2021-11-02",
+            "effective_from": "2022-10-01",
+            "status": "ACTIVE",
+            "source_url": "https://consumeraffairs.gov.in/pages/legal-metrology-act"
+        },
+        {
+            "id": "GSR-226-E-2022",
+            "title": "LMPC amendment; Second Schedule omitted; unit-sale-price framework substituted",
+            "gazette_date": "2022-03-28",
+            "effective_from": "2022-12-01",
+            "status": "ACTIVE",
+            "source_url": "https://consumeraffairs.gov.in/pages/legal-metrology-act"
+        },
+        {
+            "id": "GSR-577-E-2022",
+            "title": "LMPC amendment affecting electronic-product QR provisions and related declarations",
+            "gazette_date": "2022-07-14",
+            "effective_from": "2022-07-14",
+            "status": "ACTIVE",
+            "source_url": "https://consumeraffairs.gov.in/pages/legal-metrology-act"
+        },
+        {
+            "id": "GSR-778-E-2025",
+            "title": "LMPC medical-device amendment",
+            "gazette_date": "2025-10-23",
+            "effective_from": "2025-10-24",
+            "status": "ACTIVE",
+            "source_url": "https://consumeraffairs.gov.in/pages/legal-metrology-act"
+        },
+        {
+            "id": "GSR-881-E-2025",
+            "title": "LMPC Second Amendment Rules, 2025; Rule 26 small-package exemption restriction for pan masala",
+            "gazette_date": "2025-12-02",
+            "effective_from": "2026-02-01",
+            "status": "ACTIVE",
+            "source_url": "https://consumeraffairs.gov.in/pages/legal-metrology-act"
+        },
+        {
+            "id": "GSR-128-E-2026",
+            "title": "LMPC amendment; e-commerce country-of-origin searchable/sortable filter",
+            "gazette_date": "2026-02-13",
+            "effective_from": "2026-07-01",
+            "status": "ACTIVE",
+            "source_url": "https://consumeraffairs.gov.in/pages/legal-metrology-act"
+        },
+        {
+            "id": "GSR-312-E-2026",
+            "title": "LMPC Second Amendment Rules, 2026; scheduled replacement wording for Rule 6(10A)",
+            "gazette_date": "2026-04-27",
+            "effective_from": "2027-07-01",
+            "status": "SCHEDULED",
+            "source_url": "https://consumeraffairs.gov.in/pages/legal-metrology-act"
+        },
+        {
+            "id": "GSR-418-E-2026",
+            "title": "LMPC Third Amendment Rules, 2026; AEO bonded-warehouse declarations and registration updates",
+            "gazette_date": "2026-05-29",
+            "effective_from": "2026-05-29",
+            "status": "ACTIVE",
+            "source_url": "https://consumeraffairs.gov.in/pages/legal-metrology-act"
+        }
+    ],
+    "rule_catalog": [
+        {
+            "rule_no": "1",
+            "title": "Short title and commencement",
+            "automation": "NOT_AUTOMATED"
+        },
+        {
+            "rule_no": "2",
+            "title": "Definitions",
+            "automation": "CONTEXT_ENGINE"
+        },
+        {
+            "rule_no": "3",
+            "title": "Application of Chapter II",
+            "automation": "APPLICABILITY"
+        },
+        {
+            "rule_no": "4",
+            "title": "Regulation for pre-packing and sale etc. of commodities in packaged form",
+            "automation": "PARTIAL_AUTOMATION"
+        },
+        {
+            "rule_no": "5",
+            "title": "Specific commodities to be packed and sold in recommended standard packages",
+            "automation": "PARTIAL_AUTOMATION"
+        },
+        {
+            "rule_no": "6",
+            "title": "Declarations to be made on every package",
+            "automation": "AUTOMATED_WHERE_EVIDENCE_IS_AVAILABLE"
+        },
+        {
+            "rule_no": "7",
+            "title": "Principal display panel — area, size and lettering",
+            "automation": "AUTOMATED_WHERE_CALIBRATION_EXISTS"
+        },
+        {
+            "rule_no": "8",
+            "title": "Declaration where to appear",
+            "automation": "AUTOMATED_WHERE_SPATIAL_EVIDENCE_EXISTS"
+        },
+        {
+            "rule_no": "9",
+            "title": "Manner in which declaration shall be made",
+            "automation": "PARTIAL_AUTOMATION"
+        },
+        {
+            "rule_no": "10",
+            "title": "Declaration of name and address of manufacturer, etc.",
+            "automation": "PARTIAL_AUTOMATION"
+        },
+        {
+            "rule_no": "11",
+            "title": "General provisions relating to declaration of quantity",
+            "automation": "PARTIAL_AUTOMATION"
+        },
+        {
+            "rule_no": "12",
+            "title": "Manner in which declaration of quantity shall be made",
+            "automation": "AUTOMATABLE"
+        },
+        {
+            "rule_no": "13",
+            "title": "Statement of units of weight, measure or number",
+            "automation": "AUTOMATABLE"
+        },
+        {
+            "rule_no": "14",
+            "title": "Declarations with regard to dimensions of certain commodities",
+            "automation": "CONTEXTUAL"
+        },
+        {
+            "rule_no": "15",
+            "title": "Declaration with regard to dimensions and weight in certain cases",
+            "automation": "CONTEXTUAL"
+        },
+        {
+            "rule_no": "16",
+            "title": "Declarations regarding number of usable sheets",
+            "automation": "CONTEXTUAL"
+        },
+        {
+            "rule_no": "17",
+            "title": "Declarations for container-type commodities",
+            "automation": "CONTEXTUAL"
+        },
+        {
+            "rule_no": "18",
+            "title": "Provisions relating to wholesale dealer and retail dealers",
+            "automation": "CONTEXTUAL"
+        },
+        {
+            "rule_no": "19",
+            "title": "Inspection of quantity and error at manufacturer/packer premises",
+            "automation": "INSPECTION_WORKFLOW"
+        },
+        {
+            "rule_no": "20",
+            "title": "Action after inspection at manufacturer/packer premises",
+            "automation": "AUTHORITY_ACTION_REFERENCE"
+        },
+        {
+            "rule_no": "21",
+            "title": "Inspection of quantity and error at wholesale/retail dealer premises",
+            "automation": "INSPECTION_WORKFLOW"
+        },
+        {
+            "rule_no": "22",
+            "title": "Establishment of maximum permissible error on package",
+            "automation": "DETERMINISTIC_WITH_SCHEDULES"
+        },
+        {
+            "rule_no": "23",
+            "title": "Deceptive packages to be repacked or, in default, seized",
+            "automation": "RISK_SIGNAL_ONLY"
+        },
+        {
+            "rule_no": "24",
+            "title": "Declarations on every wholesale package",
+            "automation": "AUTOMATABLE_WHERE_PACKAGE_TYPE_KNOWN"
+        },
+        {
+            "rule_no": "25",
+            "title": "Restrictions on sale of export packages in India",
+            "automation": "CONTEXTUAL"
+        },
+        {
+            "rule_no": "26",
+            "title": "Exemption in respect of certain packages",
+            "automation": "APPLICABILITY"
+        },
+        {
+            "rule_no": "27",
+            "title": "Registration of manufacturers, packers and importers",
+            "automation": "DOCUMENTARY_CONTEXT"
+        },
+        {
+            "rule_no": "28",
+            "title": "Registration of shorter address permissible",
+            "automation": "DOCUMENTARY_CONTEXT"
+        },
+        {
+            "rule_no": "29",
+            "title": "Registration of manufacturers and packers etc.",
+            "automation": "REFERENCE_ONLY"
+        },
+        {
+            "rule_no": "30",
+            "title": "Compilation and circulation of registered manufacturer/packer lists",
+            "automation": "REFERENCE_ONLY"
+        },
+        {
+            "rule_no": "31",
+            "title": "Retail-sale-price advertisements: net quantity/number and font relationship",
+            "automation": "OPTIONAL_AD_CHECK"
+        },
+        {
+            "rule_no": "32",
+            "title": "Fine for contravention of rules",
+            "automation": "LEGAL_CONSEQUENCE_REFERENCE_ONLY"
+        },
+        {
+            "rule_no": "32-A",
+            "title": "Sum of compounding of offences",
+            "automation": "LEGAL_CONSEQUENCE_REFERENCE_ONLY"
+        },
+        {
+            "rule_no": "33",
+            "title": "Power to relax",
+            "automation": "DOCUMENTARY_CONTEXT"
+        },
+        {
+            "rule_no": "34",
+            "title": "Repeal and savings",
+            "automation": "HISTORICAL_CONTEXT"
+        }
+    ],
+    "schedules": {
+        "first": {
+            "purpose": "Maximum permissible errors for net quantity",
+            "weight_volume_table": [
+                {
+                    "declared_min": 0,
+                    "declared_max": 50,
+                    "unit": "g_or_ml",
+                    "mpe_type": "percent",
+                    "mpe": 9
+                },
+                {
+                    "declared_min": 50,
+                    "declared_max": 100,
+                    "unit": "g_or_ml",
+                    "mpe_type": "absolute",
+                    "mpe": 4.5
+                },
+                {
+                    "declared_min": 100,
+                    "declared_max": 200,
+                    "unit": "g_or_ml",
+                    "mpe_type": "percent",
+                    "mpe": 4.5
+                },
+                {
+                    "declared_min": 200,
+                    "declared_max": 300,
+                    "unit": "g_or_ml",
+                    "mpe_type": "absolute",
+                    "mpe": 9
+                },
+                {
+                    "declared_min": 300,
+                    "declared_max": 500,
+                    "unit": "g_or_ml",
+                    "mpe_type": "percent",
+                    "mpe": 3
+                },
+                {
+                    "declared_min": 500,
+                    "declared_max": 1000,
+                    "unit": "g_or_ml",
+                    "mpe_type": "absolute",
+                    "mpe": 15
+                },
+                {
+                    "declared_min": 1000,
+                    "declared_max": 10000,
+                    "unit": "g_or_ml",
+                    "mpe_type": "percent",
+                    "mpe": 1.5
+                },
+                {
+                    "declared_min": 10000,
+                    "declared_max": 15000,
+                    "unit": "g_or_ml",
+                    "mpe_type": "absolute",
+                    "mpe": 150
+                },
+                {
+                    "declared_min": 15000,
+                    "declared_max": null,
+                    "unit": "g_or_ml",
+                    "mpe_type": "percent",
+                    "mpe": 1.0
+                }
+            ],
+            "length_mpe_percent": "2% up to 10 m, thereafter 1%",
+            "area_mpe_percent": "4% up to 10 sq m, thereafter 1%",
+            "number_mpe_percent": "2%"
+        },
+        "second": {
+            "status": "OMITTED",
+            "note": "Second Schedule was omitted by G.S.R. 226(E); do not enforce the old legacy commodity standard-quantity list."
+        },
+        "third": {
+            "when_packed_commodity_examples": [
+                "All kinds of soaps",
+                "Lotions",
+                "Cream (other than cream of milk)",
+                "Camphor"
+            ]
+        },
+        "fourth": {
+            "quantity_mode_overrides": [
+                {
+                    "commodity": "Aerosol Products",
+                    "allowed": [
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Acids in liquid form",
+                    "allowed": [
+                        "weight",
+                        "volume"
+                    ]
+                },
+                {
+                    "commodity": "Compressed or liquefied gas (not LPG)",
+                    "allowed": [
+                        "weight",
+                        "equivalent_volume_at_stated_temperature_pressure"
+                    ]
+                },
+                {
+                    "commodity": "Curd",
+                    "allowed": [
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Electric Cables",
+                    "allowed": [
+                        "length",
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Electric wire",
+                    "allowed": [
+                        "length",
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Fencing wire",
+                    "allowed": [
+                        "number",
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Fruits, all kinds",
+                    "allowed": [
+                        "number",
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Furnace oil",
+                    "allowed": [
+                        "weight",
+                        "volume"
+                    ]
+                },
+                {
+                    "commodity": "Non-edible vegetable oil",
+                    "allowed": [
+                        "weight",
+                        "volume"
+                    ]
+                },
+                {
+                    "commodity": "Edible oil, Vanaspati ghee and butter oil",
+                    "allowed": [
+                        "weight",
+                        "volume"
+                    ]
+                },
+                {
+                    "commodity": "Heavy residual fuel oil",
+                    "allowed": [
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Industrial diesel fuel",
+                    "allowed": [
+                        "volume"
+                    ]
+                },
+                {
+                    "commodity": "Honey, malt-extract, golden syrup treacle",
+                    "allowed": [
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Ice cream and similar frozen products",
+                    "allowed": [
+                        "weight",
+                        "volume"
+                    ]
+                },
+                {
+                    "commodity": "Liquid chemicals",
+                    "allowed": [
+                        "weight",
+                        "volume"
+                    ]
+                },
+                {
+                    "commodity": "Liquified petroleum gas",
+                    "allowed": [
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Nails, wood screws",
+                    "allowed": [
+                        "number",
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Paints/varnish/enamels (excluding paste/solid paint)",
+                    "allowed": [
+                        "volume"
+                    ]
+                },
+                {
+                    "commodity": "Paste paint, solid paint",
+                    "allowed": [
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Rasgulla, Gulabjamun and other sweet preparations",
+                    "allowed": [
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Readymade garments",
+                    "allowed": [
+                        "number"
+                    ]
+                },
+                {
+                    "commodity": "Sauces, all kinds",
+                    "allowed": [
+                        "weight"
+                    ]
+                },
+                {
+                    "commodity": "Tyres and tubes",
+                    "allowed": [
+                        "number"
+                    ]
+                },
+                {
+                    "commodity": "Yarn",
+                    "allowed": [
+                        "weight",
+                        "length"
+                    ]
+                },
+                {
+                    "commodity": "Cosmetics including creams, shampoo, lotions and perfumes",
+                    "allowed": [
+                        "weight",
+                        "measure"
+                    ]
+                }
+            ]
+        },
+        "fifth": {
+            "sample_selection": [
+                {
+                    "lot_min": 100,
+                    "lot_max": 500,
+                    "sample_size": 50,
+                    "correction_factor": 0.379,
+                    "error_count_threshold": 3
+                },
+                {
+                    "lot_min": 501,
+                    "lot_max": 3200,
+                    "sample_size": 80,
+                    "correction_factor": 0.295,
+                    "error_count_threshold": 5
+                },
+                {
+                    "lot_min": 3201,
+                    "lot_max": null,
+                    "sample_size": 125,
+                    "correction_factor": 0.234,
+                    "error_count_threshold": 7
+                }
+            ]
+        },
+        "sixth": {
+            "purpose": "Determination of net quantity using suitable/verified standards and equipment; PackCheck captures inspector/instrument evidence but does not weigh a package with the phone camera."
+        },
+        "seventh": {
+            "purpose": "Inspection/test record form reference; PackCheck records an electronic evidence trail instead of claiming to replace statutory forms."
+        }
+    },
+    "machine_checks": [
+        {
+            "id": "R3_SCOPE",
+            "rule_no": "3",
+            "description": "Determine whether Chapter II retail-package requirements apply before evaluating them."
+        },
+        {
+            "id": "R4_CORE_DECLARATION_PRESENT",
+            "rule_no": "4",
+            "description": "For packages leaving manufacturer premises, required declarations must be present; bonded-warehouse allowance is contextual."
+        },
+        {
+            "id": "R6_DECLARATIONS",
+            "rule_no": "6",
+            "description": "Evaluate applicable mandatory declarations and special commodity-sector overrides."
+        },
+        {
+            "id": "R6_ECOM_ORIGIN_FILTER",
+            "rule_no": "6(10A)",
+            "effective_from": "2026-07-01",
+            "expires_or_replaced": "2027-07-01",
+            "description": "For imported products offered for sale by an e-commerce entity, require the effective searchable/sortable country-of-origin filter rule."
+        },
+        {
+            "id": "R7_LETTER_HEIGHT",
+            "rule_no": "7",
+            "description": "Use current PDP table only when physical scale calibration is available; otherwise REVIEW_REQUIRED."
+        },
+        {
+            "id": "R8_PDP_PLACEMENT",
+            "rule_no": "8",
+            "description": "Check spatial placement and separation around the net-quantity declaration where image geometry is adequate."
+        },
+        {
+            "id": "R9_PRESENTATION",
+            "rule_no": "9",
+            "description": "Check legibility/presentation/contrast/language using evidence; ambiguous image quality must not become a false failure."
+        },
+        {
+            "id": "R10_ADDRESS",
+            "rule_no": "10",
+            "description": "Check manufacturer/packer/importer identity/address context, including approved shorter-address exception."
+        },
+        {
+            "id": "R11_QUANTITY",
+            "rule_no": "11",
+            "description": "Compare declared quantity and measured quantity only when a valid inspector/instrument measurement is supplied."
+        },
+        {
+            "id": "R12_QUANTITY_MODE",
+            "rule_no": "12",
+            "description": "Select weight/measure/number from commodity type and Fourth Schedule overrides."
+        },
+        {
+            "id": "R13_UNITS",
+            "rule_no": "13",
+            "description": "Validate the statement of units and subunit choice."
+        },
+        {
+            "id": "R14_DIMENSIONS",
+            "rule_no": "14",
+            "description": "Commodity-specific dimension declarations where applicable."
+        },
+        {
+            "id": "R15_DIMENSION_WEIGHT",
+            "rule_no": "15",
+            "description": "Cases where price/quantity relationship requires additional dimension/weight declaration."
+        },
+        {
+            "id": "R16_SHEETS",
+            "rule_no": "16",
+            "description": "Sheet packages require usable-sheet count and dimensions where applicable."
+        },
+        {
+            "id": "R17_CONTAINER",
+            "rule_no": "17",
+            "description": "Container-type commodity quantity/dimensions declarations where applicable."
+        },
+        {
+            "id": "R18_SALE_PRICE",
+            "rule_no": "18",
+            "description": "Transaction-stage check only when observed sale price is provided; lower-than-MRP sale is not itself a violation."
+        },
+        {
+            "id": "R19_21_INSPECTION_TEST",
+            "rule_no": "19/21",
+            "description": "Capture lot, sample and verified measurement evidence for inspector-led quantity testing."
+        },
+        {
+            "id": "R22_MPE",
+            "rule_no": "22",
+            "description": "Apply First Schedule maximum permissible error to verified measurements."
+        },
+        {
+            "id": "R23_DECEPTIVE",
+            "rule_no": "23",
+            "description": "Produce only a potential deceptive-package design signal; do not declare deception from CV alone."
+        },
+        {
+            "id": "R24_WHOLESALE",
+            "rule_no": "24",
+            "description": "Apply wholesale-package declarations when package type is wholesale."
+        },
+        {
+            "id": "R25_EXPORT",
+            "rule_no": "25",
+            "description": "For export packages encountered in domestic sale context, require domestic conformity before automated conclusion."
+        },
+        {
+            "id": "R26_EXEMPTIONS",
+            "rule_no": "26",
+            "description": "Apply current exemptions before downstream checks; uncertain exemption status routes to review."
+        },
+        {
+            "id": "R27_REGISTRATION",
+            "rule_no": "27",
+            "description": "Check registration evidence only when registry/certificate context is supplied; package image alone cannot prove registration."
+        },
+        {
+            "id": "R28_SHORT_ADDRESS",
+            "rule_no": "28",
+            "description": "Accept shorter address only when registration/permission evidence is provided."
+        },
+        {
+            "id": "R31_ADVERTISEMENT",
+            "rule_no": "31",
+            "description": "Optional advertisement inspection: if advertisement mentions retail sale price, net quantity/number and font relationship can be checked."
+        },
+        {
+            "id": "R33_RELAXATION",
+            "rule_no": "33",
+            "description": "Apply a documented relaxation only from authoritative approval evidence and within its conditions/time window."
+        }
+    ],
+    "sector_overrides": {
+        "food": "LMPC Rule 6 food-specific portions may defer to FSS Act/rules where expressly stated; PackCheck must label cross-regulatory coverage and must not claim complete FSSAI compliance.",
+        "cosmetic": "LMPC Rule 6 expressly routes certain manufacture/date matters to the Drugs and Cosmetics Rules; do not apply conflicting LMPC assumptions.",
+        "seed": "LMPC Rule 6 contains an explicit seed-labeling exception for manufacture-date provision where Seeds Act certification applies.",
+        "alcohol": "Retail-sale-price declaration is subject to applicable State Excise law where provided.",
+        "medical_device": "Since 2025-10-24, MDR 2017 governs the applicable declaration/letter-height/width rules for packages containing medical devices; PackCheck must not apply ordinary LMPC font metrics as a final result.",
+        "tobacco": "Rule 26(a) small-package exemption is restricted; tobacco and tobacco products are not to be assumed exempt.",
+        "pan_masala": "From 2026-02-01, the Rule 26(a) small-package exemption is restricted for pan masala; do not treat a <=10 g/ml pan-masala package as exempt under that clause."
+    }
+}

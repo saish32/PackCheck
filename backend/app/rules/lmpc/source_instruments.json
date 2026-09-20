@@ -1,0 +1,60 @@
+{
+    "corpus_id": "PACKCHECK-LMPC-2026",
+    "verified_as_of": "2026-09-16",
+    "primary_source": {
+        "agency": "Department of Consumer Affairs, Ministry of Consumer Affairs, Food and Public Distribution",
+        "url": "https://consumeraffairs.gov.in/pages/legal-metrology-act",
+        "purpose": "Official landing page for Legal Metrology Act, Packaged Commodities Rules, amendments and related official documents."
+    },
+    "base_law": {
+        "title": "Legal Metrology Act, 2009",
+        "official_source": "https://www.indiacode.nic.in/handle/123456789/2102?locale=hi"
+    },
+    "base_rules": {
+        "title": "Legal Metrology (Packaged Commodities) Rules, 2011",
+        "official_rule_source": "https://upload.indiacode.nic.in/showfile?actid=AC_CH_60_1205_00002_00002_1560405527490&filename=9_the_legal_metrology_%28package_commodities%29_rules%2C_2011.pdf&type=rule",
+        "effective_from": "2011-04-01"
+    },
+    "active_amendments_used_by_engine": [
+        {
+            "id": "GSR-629-E-2017",
+            "effective_from": "2018-01-01"
+        },
+        {
+            "id": "GSR-779-E-2021",
+            "effective_from": "2022-10-01"
+        },
+        {
+            "id": "GSR-226-E-2022",
+            "effective_from": "2022-12-01"
+        },
+        {
+            "id": "GSR-577-E-2022",
+            "effective_from": "2022-07-14"
+        },
+        {
+            "id": "GSR-778-E-2025",
+            "effective_from": "2025-10-24"
+        },
+        {
+            "id": "GSR-881-E-2025",
+            "effective_from": "2026-02-01"
+        },
+        {
+            "id": "GSR-128-E-2026",
+            "effective_from": "2026-07-01"
+        },
+        {
+            "id": "GSR-418-E-2026",
+            "effective_from": "2026-05-29"
+        }
+    ],
+    "scheduled_amendments": [
+        {
+            "id": "GSR-312-E-2026",
+            "effective_from": "2027-07-01",
+            "status": "DO_NOT_APPLY_BEFORE_EFFECTIVE_DATE"
+        }
+    ],
+    "source_policy": "The official instrument is the legal source of truth. PackCheck stores machine-readable paraphrases and structured test metadata; it does not replace or amend the Gazette text."
+}
