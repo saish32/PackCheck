@@ -76,7 +76,7 @@ def apply_adaptive_preprocessing(
     rgb_arr: np.ndarray,
     orig_w: int,
     orig_h: int,
-    max_dimension: int = 1280
+    max_dimension: int = 960
 ) -> List[PreprocessedImage]:
     """
     Generates adaptive candidate views for OCR without destructive irreversible modifications.

@@ -1,3 +1,12 @@
+import os
+# Constrain thread allocation so ONNX Runtime stays strictly under 512MB RAM on Render
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
+import gc
 from typing import List, Optional
 import numpy as np
 from rapidocr_onnxruntime import RapidOCR
@@ -9,13 +18,20 @@ from app.core.cv_preprocessor import decode_image_bytes, apply_adaptive_preproce
 class RapidOCRProvider(BaseOCRProvider):
     """
     Production-grade pretrained OCR provider utilizing RapidOCR (PaddleOCR ONNX models)
-    with adaptive OpenCV preprocessing. Guarantees coordinate invariance back to original
-    source image pixels.
+    with adaptive OpenCV preprocessing. Configured for low-memory cloud execution.
     """
 
     def __init__(self):
-        # Initializes pretrained detection (DBNet) and recognition (CRNN) ONNX models
-        self._engine = RapidOCR()
+        # Initializes pretrained detection (DBNet) and recognition (CRNN) with low memory limits
+        try:
+            self._engine = RapidOCR(
+                Det_limit_side_len=960,
+                Det_limit_type="max",
+                Global_use_angle_cls=False,
+                Global_text_score=0.45
+            )
+        except Exception as e:
+            self._engine = RapidOCR()
 
     @property
     def provider_name(self) -> str:
@@ -79,6 +95,9 @@ class RapidOCRProvider(BaseOCRProvider):
                 # Performance optimization: if baseline candidate yields clean confident OCR, skip redundant variants
                 if best_mean_conf >= 0.70 and len(lines) >= 3:
                     break
+
+        # Force release of temporary tensor buffers
+        gc.collect()
 
         return OCRResult(
             lines=best_lines,
