@@ -11,3 +11,4 @@ python-multipart>=0.0.9
 opencv-python-headless>=4.10.0
 rapidocr-onnxruntime>=1.2.3
 reportlab>=4.0.0
+psycopg2-binary>=2.9.9
