@@ -34,7 +34,12 @@ class RapidOCRProvider(BaseOCRProvider):
 
         # Evaluates candidate variations adaptively without destructive alterations
         for candidate in candidates:
-            ocr_results, _ = self._engine(candidate.image_np)
+            try:
+                ocr_results, _ = self._engine(candidate.image_np)
+            except Exception as engine_err:
+                print(f"[Warning] RapidOCR inference error on candidate: {engine_err}")
+                continue
+
             if not ocr_results:
                 continue
 
@@ -70,6 +75,10 @@ class RapidOCRProvider(BaseOCRProvider):
                     best_mean_conf = mean_conf
                     best_lines = lines
                     best_full_text = "\n".join(l.text for l in lines)
+                
+                # Performance optimization: if baseline candidate yields clean confident OCR, skip redundant variants
+                if best_mean_conf >= 0.70 and len(lines) >= 3:
+                    break
 
         return OCRResult(
             lines=best_lines,

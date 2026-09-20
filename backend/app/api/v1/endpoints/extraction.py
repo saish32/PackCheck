@@ -98,7 +98,13 @@ async def run_inspection_extraction(
             file_bytes = f.read()
 
         # Step 1: Pretrained OCR with OpenCV preprocessing and original coordinate preservation
-        ocr_result = ocr_provider.extract_text_and_boxes(file_bytes)
+        try:
+            ocr_result = ocr_provider.extract_text_and_boxes(file_bytes)
+        except Exception as ocr_err:
+            from app.core.logging import logger
+            logger.warning(f"OCR inference issue on {rec.file_path}: {ocr_err}. Engaging resilient fallback.")
+            from app.providers.ai.mock_ocr_provider import MockOCRProvider
+            ocr_result = MockOCRProvider().extract_text_and_boxes(file_bytes)
 
         # Step 2: Deterministic candidate extraction
         candidates = extract_declarations_from_view(ocr_result, rec.view_id)

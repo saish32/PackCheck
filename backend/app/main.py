@@ -30,13 +30,28 @@ def create_application() -> FastAPI:
         lifespan=lifespan
     )
 
-    # Configure CORS
+    # Configure CORS with explicit support for Vercel domains and credentialed requests
+    raw_origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [str(settings.CORS_ORIGINS)]
+    cors_origins = [o.strip() for o in raw_origins if o.strip() and o.strip() != "*"]
+    
+    known_origins = [
+        "https://pack-check-mu.vercel.app",
+        "https://pack-check.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    for ko in known_origins:
+        if ko not in cors_origins:
+            cors_origins.append(ko)
+
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else ["*"],
+        allow_origins=cors_origins,
+        allow_origin_regex=r"^https://.*\.vercel\.app$|^http://localhost:\d+$",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"],
     )
 
     # Structured Request Logging Middleware

@@ -75,29 +75,46 @@ def decode_image_bytes(image_bytes: bytes) -> Tuple[np.ndarray, int, int]:
 def apply_adaptive_preprocessing(
     rgb_arr: np.ndarray,
     orig_w: int,
-    orig_h: int
+    orig_h: int,
+    max_dimension: int = 1280
 ) -> List[PreprocessedImage]:
     """
-    Generates adaptive candidate views for OCR without destructive irreversible modifications:
-    1. Baseline: Normalized original RGB (unaltered pixels).
-    2. Local Contrast Enhancement (CLAHE on L-channel in LAB space): enhances low-contrast print.
-    3. Bilateral Filtered Grayscale: preserves crisp text edges while dampening texture grain.
+    Generates adaptive candidate views for OCR without destructive irreversible modifications.
+    Safely downscales high-resolution camera captures (e.g. 4000x3000 down to max 1280px)
+    to operate comfortably within cloud memory limits (512MB RAM), while mapping all
+    detected bounding boxes back to original coordinates with exact precision.
     """
     candidates = []
+
+    # Calculate scaling factor to keep max dimension <= max_dimension
+    max_side = max(orig_w, orig_h)
+    if max_side > max_dimension:
+        downscale_factor = float(max_dimension) / float(max_side)
+        proc_w = int(round(orig_w * downscale_factor))
+        proc_h = int(round(orig_h * downscale_factor))
+        proc_rgb = cv2.resize(rgb_arr, (proc_w, proc_h), interpolation=cv2.INTER_AREA)
+        scale_x = proc_w / float(orig_w)
+        scale_y = proc_h / float(orig_h)
+    else:
+        proc_rgb = rgb_arr
+        scale_x = 1.0
+        scale_y = 1.0
 
     # 1. Baseline Clean RGB
     candidates.append(
         PreprocessedImage(
-            image_np=rgb_arr,
+            image_np=proc_rgb,
             orig_width=orig_w,
             orig_height=orig_h,
+            scale_x=scale_x,
+            scale_y=scale_y,
             description="baseline_rgb"
         )
     )
 
     # 2. CLAHE (Local Contrast Enhancement in LAB color space)
     try:
-        lab = cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2LAB)
+        lab = cv2.cvtColor(proc_rgb, cv2.COLOR_RGB2LAB)
         l_channel, a_channel, b_channel = cv2.split(lab)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         cl = clahe.apply(l_channel)
@@ -108,6 +125,8 @@ def apply_adaptive_preprocessing(
                 image_np=enhanced_rgb,
                 orig_width=orig_w,
                 orig_height=orig_h,
+                scale_x=scale_x,
+                scale_y=scale_y,
                 description="clahe_enhanced"
             )
         )
