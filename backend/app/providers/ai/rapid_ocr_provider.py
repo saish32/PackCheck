@@ -29,7 +29,7 @@ class RapidOCRProvider(BaseOCRProvider):
         # Initializes pretrained detection (DBNet) and recognition (CRNN) with low memory limits
         try:
             self._engine = RapidOCR(
-                Det_limit_side_len=960,
+                Det_limit_side_len=720,
                 Det_limit_type="max",
                 Global_use_angle_cls=True,
                 Global_text_score=0.40
@@ -49,7 +49,7 @@ class RapidOCRProvider(BaseOCRProvider):
 
     def extract_text_and_boxes(self, image_bytes: bytes) -> OCRResult:
         rgb_arr, orig_w, orig_h = decode_image_bytes(image_bytes)
-        candidates = apply_adaptive_preprocessing(rgb_arr, orig_w, orig_h, max_dimension=960)
+        candidates = apply_adaptive_preprocessing(rgb_arr, orig_w, orig_h, max_dimension=720)
 
         best_lines: List[OCRLine] = []
         best_mean_conf: float = -1.0
@@ -102,7 +102,7 @@ class RapidOCRProvider(BaseOCRProvider):
                     best_full_text = "\n".join(l.text for l in lines)
 
                 # Render free-tier optimization: if baseline candidate yields clean confident OCR with sufficient lines, skip second pass
-                if idx == 0 and best_mean_conf >= 0.75 and len(lines) >= 6:
+                if idx == 0 and len(lines) >= 3:
                     break
 
         # If baseline found very few lines and image has strong aspect ratio (e.g. rotated side/back panel), test 90/270 rotation

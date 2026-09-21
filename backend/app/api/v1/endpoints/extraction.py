@@ -1,4 +1,5 @@
 import os
+import gc
 import json
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -116,6 +117,7 @@ async def run_inspection_extraction(
         # Step 2: Deterministic candidate extraction
         candidates = extract_declarations_from_view(ocr_result, rec.view_id)
         view_candidates_map[rec.view_id] = candidates
+        del file_bytes
         gc.collect()
 
     # Step 2b: If no candidates were extracted due to missing ephemeral files, populate with standard regulatory sample
