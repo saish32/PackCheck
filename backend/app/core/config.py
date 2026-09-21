@@ -1,12 +1,15 @@
 from typing import List, Union, Optional
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 import json
 
+_backend_env = Path(__file__).resolve().parents[2] / ".env"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(str(_backend_env), ".env"),
         env_file_encoding="utf-8",
         extra="ignore"
     )

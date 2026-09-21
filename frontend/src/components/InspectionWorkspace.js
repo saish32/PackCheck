@@ -368,6 +368,122 @@ export default function InspectionWorkspace({
 // TAB 1: SUMMARY TAB
 // ============================================================================
 function SummaryTab({ inspection, canEdit, onNavigateTab }) {
+  const ocrSummary = inspection?.ocr_evidence_summary || {};
+  const ocrComparisons = inspection?.ocr_comparisons || {};
+  const declList = inspection?.machine_declarations || [];
+
+  const getFieldData = (fieldName, labelFallback) => {
+    if (ocrSummary[fieldName]) return ocrSummary[fieldName];
+    const decl = declList.find(d => d.field_name === fieldName);
+    if (!decl) return null;
+    let norm = decl.normalized_value;
+    if (typeof norm === "string" && norm.trim().startsWith("{")) {
+      try { norm = JSON.parse(norm); } catch (e) {}
+    }
+    const val = (norm && (norm.canonical || norm.number || norm.code || norm.commodity)) || decl.raw_text;
+    const conf = decl.ocr_confidence || 0;
+    const tier = decl.status === "REVIEW_REQUIRED" ? "REVIEW_REQUIRED" : (conf >= 0.85 ? "HIGH" : (conf >= 0.7 ? "MEDIUM" : "LOW"));
+    return {
+      field_type: fieldName,
+      field_label: decl.field_label || labelFallback,
+      display_value: val,
+      confidence: conf,
+      confidence_tier: tier,
+      source_image: decl.view_id,
+      validation_status: decl.status
+    };
+  };
+
+  const fieldsConfig = [
+    { key: "mrp", label: "Maximum Retail Price (MRP)" },
+    { key: "unit_sale_price", label: "Unit Sale Price" },
+    { key: "net_quantity", label: "Net Weight / Quantity" },
+    { key: "date_mfg", label: "Date of Packing / Mfg" },
+    { key: "date_expiry", label: "Use By / Expiry Date" },
+    { key: "shelf_life", label: "Declared Shelf Life" },
+    { key: "batch_number", label: "Batch / Lot Number" },
+    { key: "fssai_license_number", label: "FSSAI License / Reg. No." },
+  ];
+
+  const compNetWeight = ocrComparisons.net_weight || {
+    field_label: "Net Weight / Quantity",
+    inspector_value: inspection?.net_quantity,
+    ocr_value: getFieldData("net_quantity")?.display_value,
+    comparison_status: (inspection?.net_quantity && getFieldData("net_quantity")?.display_value)
+      ? (inspection.net_quantity.replace(/\s+/g, "").toLowerCase() === String(getFieldData("net_quantity").display_value).replace(/\s+/g, "").toLowerCase() ? "CONSISTENT" : "MISMATCH_REVIEW_REQUIRED")
+      : (inspection?.net_quantity ? "INSPECTOR_ONLY" : (getFieldData("net_quantity")?.display_value ? "OCR_ONLY_SUGGESTION" : "ABSENT")),
+    status_label: "Automatic Verification",
+    ocr_confidence_tier: getFieldData("net_quantity")?.confidence_tier || "LOW"
+  };
+
+  const compFssai = ocrComparisons.fssai_number || {
+    field_label: "FSSAI License / Reg. No.",
+    inspector_value: inspection?.fssai_license,
+    ocr_value: getFieldData("fssai_license_number")?.display_value,
+    comparison_status: (inspection?.fssai_license && getFieldData("fssai_license_number")?.display_value)
+      ? (inspection.fssai_license.replace(/\D/g, "") === String(getFieldData("fssai_license_number").display_value).replace(/\D/g, "") ? "CONSISTENT" : "MISMATCH_REVIEW_REQUIRED")
+      : (inspection?.fssai_license ? "INSPECTOR_ONLY" : (getFieldData("fssai_license_number")?.display_value ? "OCR_ONLY_SUGGESTION" : "ABSENT")),
+    status_label: "Automatic Verification",
+    ocr_confidence_tier: getFieldData("fssai_license_number")?.confidence_tier || "LOW"
+  };
+
+  const compBatch = ocrComparisons.batch_number || {
+    field_label: "Batch / Lot Number",
+    inspector_value: inspection?.batch_number,
+    ocr_value: getFieldData("batch_number")?.display_value,
+    comparison_status: (inspection?.batch_number && getFieldData("batch_number")?.display_value)
+      ? (inspection.batch_number.trim().toUpperCase() === String(getFieldData("batch_number").display_value).trim().toUpperCase() ? "CONSISTENT" : "MISMATCH_REVIEW_REQUIRED")
+      : (inspection?.batch_number ? "INSPECTOR_ONLY" : (getFieldData("batch_number")?.display_value ? "OCR_ONLY_SUGGESTION" : "ABSENT")),
+    status_label: "Automatic Verification",
+    ocr_confidence_tier: getFieldData("batch_number")?.confidence_tier || "LOW"
+  };
+
+  const comparisonItems = [
+    { key: "net_weight", ...compNetWeight },
+    { key: "fssai_number", ...compFssai },
+    { key: "batch_number", ...compBatch },
+  ];
+
+  const getTierBadge = (tier) => {
+    switch (tier) {
+      case "HIGH":
+        return <span className="badge badge-success" title="High confidence detection">HIGH CONFIDENCE</span>;
+      case "MEDIUM":
+        return <span className="badge badge-info" title="Medium confidence detection">MEDIUM CONFIDENCE</span>;
+      case "REVIEW_REQUIRED":
+        return <span className="badge badge-warning" title="Field requires officer review">REVIEW REQUIRED</span>;
+      default:
+        return <span className="badge badge-neutral" title="Low confidence detection">LOW CONFIDENCE</span>;
+    }
+  };
+
+  const getComparisonBadge = (status) => {
+    switch (status) {
+      case "CONSISTENT":
+        return (
+          <span className="badge badge-success" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            <Icon name="check" size={13} /> CONSISTENT
+          </span>
+        );
+      case "MISMATCH_REVIEW_REQUIRED":
+        return (
+          <span className="badge badge-danger" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            <Icon name="warning" size={13} /> MISMATCH — REVIEW REQUIRED
+          </span>
+        );
+      case "OCR_ONLY_SUGGESTION":
+        return (
+          <span className="badge badge-warning" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            <Icon name="info" size={13} /> OCR SUGGESTION
+          </span>
+        );
+      case "INSPECTOR_ONLY":
+        return <span className="badge badge-neutral">INSPECTOR INPUT ONLY</span>;
+      default:
+        return <span className="badge badge-neutral">NO DATA</span>;
+    }
+  };
+
   return (
     <div className="tab-pane-summary">
       <div className="summary-grid">
@@ -375,6 +491,7 @@ function SummaryTab({ inspection, canEdit, onNavigateTab }) {
         <section className="enterprise-panel">
           <div className="panel-header">
             <h3>Packaging & Product Parameters</h3>
+            <span className="badge badge-info">Inspector Input</span>
           </div>
           <div className="panel-body">
             <dl className="key-value-list">
@@ -443,6 +560,121 @@ function SummaryTab({ inspection, canEdit, onNavigateTab }) {
           </div>
         </section>
       </div>
+
+      {/* OCR PACKAGE EVIDENCE CARD */}
+      <section className="enterprise-panel" style={{ marginTop: "1.25rem" }}>
+        <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h3>OCR Package Evidence</h3>
+            <p style={{ margin: "2px 0 0 0", fontSize: "11px", color: "var(--text-secondary)" }}>
+              Detected from physical packaging evidence photography • Technical screening evidence only
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-row-action"
+            onClick={() => onNavigateTab("declarations")}
+            style={{ fontSize: "12px" }}
+          >
+            View Full Ledger →
+          </button>
+        </div>
+        <div className="panel-body" style={{ padding: "16px" }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: "14px"
+          }}>
+            {fieldsConfig.map(({ key, label }) => {
+              const data = getFieldData(key, label);
+              const hasVal = Boolean(data && data.display_value);
+              return (
+                <div
+                  key={key}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--border-subtle)",
+                    backgroundColor: "var(--bg-surface-subtle)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: "8px"
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "6px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase" }}>
+                      {label}
+                    </span>
+                    {hasVal && getTierBadge(data.confidence_tier)}
+                  </div>
+                  <div style={{ fontSize: "15px", fontWeight: 700, color: hasVal ? "var(--text-primary)" : "var(--text-muted)" }}>
+                    {hasVal ? String(data.display_value) : "— (Not Detected)"}
+                  </div>
+                  {hasVal && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--text-muted)" }}>
+                      <span>View: <code style={{ color: "var(--primary)" }}>{data.source_image || "all"}</code></span>
+                      {data.confidence > 0 && <span>Conf: {(data.confidence * 100).toFixed(0)}%</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* INSPECTOR INPUT VS OCR PACKAGE EVIDENCE VERIFICATION CARD */}
+      <section className="enterprise-panel" style={{ marginTop: "1.25rem" }}>
+        <div className="panel-header">
+          <div>
+            <h3>Inspector Input vs. OCR Package Evidence Verification</h3>
+            <p style={{ margin: "2px 0 0 0", fontSize: "11px", color: "var(--text-secondary)" }}>
+              Authoritative officer input is never overwritten. Inconsistencies require officer manual review.
+            </p>
+          </div>
+        </div>
+        <div className="panel-body" style={{ padding: "0" }}>
+          <div className="panel-table-wrap">
+            <table className="enterprise-table">
+              <thead>
+                <tr>
+                  <th>Target Parameter</th>
+                  <th>Inspector Input (Authoritative)</th>
+                  <th>OCR Package Evidence</th>
+                  <th>Reconciliation Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonItems.map((item) => (
+                  <tr key={item.key}>
+                    <td>
+                      <span className="table-main-text">{item.field_label}</span>
+                    </td>
+                    <td>
+                      {item.inspector_value ? (
+                        <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{item.inspector_value}</span>
+                      ) : (
+                        <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>— (Not Entered)</span>
+                      )}
+                    </td>
+                    <td>
+                      {item.ocr_value ? (
+                        <span style={{ fontFamily: "monospace", color: "var(--text-primary)" }}>{item.ocr_value}</span>
+                      ) : (
+                        <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>— (Not Detected)</span>
+                      )}
+                    </td>
+                    <td>
+                      {getComparisonBadge(item.comparison_status)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
       {/* Quick Stage Shortcuts */}
       <section className="enterprise-panel" style={{ marginTop: "1.25rem" }}>

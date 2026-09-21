@@ -92,6 +92,8 @@ class InspectionDetailOut(InspectionOut):
     compliance_overall_state: Optional[str] = None
     reviewer_name: Optional[str] = None
     reviewer_role: Optional[str] = None
+    ocr_comparisons: Optional[dict] = None
+    ocr_evidence_summary: Optional[dict] = None
 
 
 class InspectionListResponse(BaseModel):

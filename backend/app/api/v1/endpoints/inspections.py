@@ -22,6 +22,7 @@ from app.schemas.inspection import (
     InspectionHistoryOut
 )
 from app.api.deps import get_current_user, require_roles, create_audit_entry
+from app.core.field_extractor import compare_inspector_and_ocr, build_ocr_evidence_summary
 
 router = APIRouter()
 
@@ -360,6 +361,26 @@ async def get_inspection(
                 reviewer_role = h.changed_by_role
                 break
 
+    ocr_decl_map = {d.field_name: d for d in persisted_declarations}
+    ocr_comparisons = {
+        "net_weight": compare_inspector_and_ocr(
+            "net_quantity",
+            inspection.net_quantity,
+            ocr_decl_map.get("net_quantity").__dict__ if ocr_decl_map.get("net_quantity") else None
+        ),
+        "fssai_number": compare_inspector_and_ocr(
+            "fssai_license_number",
+            inspection.fssai_license,
+            ocr_decl_map.get("fssai_license_number").__dict__ if ocr_decl_map.get("fssai_license_number") else None
+        ),
+        "batch_number": compare_inspector_and_ocr(
+            "batch_number",
+            inspection.batch_number,
+            ocr_decl_map.get("batch_number").__dict__ if ocr_decl_map.get("batch_number") else None
+        ),
+    }
+    ocr_evidence_summary = build_ocr_evidence_summary(persisted_declarations)
+
     detail_data = InspectionOut.model_validate(inspection).model_dump()
     detail_data["has_pdf"] = bool(pdf_meta)
     detail_data["pdf_sha256"] = pdf_meta["sha256_hash"] if pdf_meta else None
@@ -371,6 +392,8 @@ async def get_inspection(
     detail_data["compliance_overall_state"] = compliance_overall_state
     detail_data["reviewer_name"] = reviewer_name
     detail_data["reviewer_role"] = reviewer_role
+    detail_data["ocr_comparisons"] = ocr_comparisons
+    detail_data["ocr_evidence_summary"] = ocr_evidence_summary
 
     return InspectionDetailOut(**detail_data)
 

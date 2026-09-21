@@ -29,6 +29,7 @@ yarn-error.log*
 Thumbs.db
 
 # PackCheck runtime temporary captures (source images deleted after permanent PDF verification)
+storage/
 backend/storage/temp_captures/*
 !backend/storage/temp_captures/.gitkeep
 backend/storage/temp_test/*
@@ -59,3 +60,4 @@ backend/test_phase15_security_and_hardening.py
 backend/test_phases1_to_11_full_lifecycle.py
 backend/test_phases7_8_9_e2e.py
 backend/test_rule_engine_phase7.py
+backend/test_ocr_precision_regression.py

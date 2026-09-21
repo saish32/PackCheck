@@ -470,10 +470,35 @@ def generate_final_inspection_pdf(
             ext_conf = getattr(decl, "extraction_confidence", 0.0)
             conf_str = f"OCR: {int(ocr_conf * 100)}%<br/>Ext: {int(ext_conf * 100)}%"
 
+            # Format display value cleanly
+            val_to_display = getattr(decl, "verified_value", None) or getattr(decl, "normalized_value", None)
+            if isinstance(val_to_display, str) and val_to_display.strip().startswith("{"):
+                try:
+                    import json
+                    parsed_val = json.loads(val_to_display)
+                    if isinstance(parsed_val, dict):
+                        val_to_display = (
+                            parsed_val.get("canonical") or 
+                            parsed_val.get("number") or 
+                            parsed_val.get("code") or 
+                            parsed_val.get("commodity") or 
+                            val_to_display
+                        )
+                except Exception:
+                    pass
+            elif isinstance(val_to_display, dict):
+                val_to_display = (
+                    val_to_display.get("canonical") or 
+                    val_to_display.get("number") or 
+                    val_to_display.get("code") or 
+                    val_to_display.get("commodity") or 
+                    str(val_to_display)
+                )
+
             decl_table_data.append([
                 Paragraph(f"<b>{safe_pdf_text(decl.field_label)}</b>", styles["TableCellBold"]),
                 Paragraph(safe_pdf_text(str(decl.raw_text or "-")), styles["TableCellCode"]),
-                Paragraph(safe_pdf_text(str(decl.verified_value or decl.normalized_value or "-")), styles["TableCell"]),
+                Paragraph(safe_pdf_text(str(val_to_display or "-")), styles["TableCell"]),
                 Paragraph(conf_str, styles["TableCell"]),
                 Paragraph(f"<font color='{status_color}'><b>{safe_pdf_text(status_val)}</b></font>", styles["TableCell"]),
                 Paragraph(safe_pdf_text(str(decl.view_id or "-")), styles["TableCellCode"]),
@@ -500,6 +525,67 @@ def generate_final_inspection_pdf(
         ]))
         story.append(decl_table)
         story.append(Spacer(1, 10))
+
+        # Inspector Input vs OCR Package Evidence Comparison Table
+        try:
+            from app.core.field_extractor import compare_inspector_and_ocr
+            decl_map = {}
+            for d in declarations:
+                fname = getattr(d, "field_name", None)
+                if not fname:
+                    flabel = getattr(d, "field_label", "").lower()
+                    if "net" in flabel or "weight" in flabel or "quantity" in flabel:
+                        fname = "net_quantity"
+                    elif "fssai" in flabel:
+                        fname = "fssai_license_number"
+                    elif "batch" in flabel or "lot" in flabel:
+                        fname = "batch_number"
+                if fname:
+                    decl_map[fname] = d
+
+            cmp_rows = []
+            for f_key, f_label, insp_val in [
+                ("net_quantity", "Net Weight / Quantity", getattr(inspection, "net_quantity", None)),
+                ("fssai_license_number", "FSSAI License / Reg. No.", getattr(inspection, "fssai_license", None)),
+                ("batch_number", "Batch / Lot Number", getattr(inspection, "batch_number", None)),
+            ]:
+                if insp_val or f_key in decl_map:
+                    d_obj = decl_map.get(f_key)
+                    d_dict = d_obj.__dict__ if hasattr(d_obj, "__dict__") else (d_obj if isinstance(d_obj, dict) else None)
+                    res = compare_inspector_and_ocr(f_key, insp_val, d_dict)
+                    st_color = "#15803d" if res["comparison_status"] == "CONSISTENT" else ("#b91c1c" if res["comparison_status"] == "MISMATCH_REVIEW_REQUIRED" else "#b45309")
+                    cmp_rows.append([
+                        Paragraph(f"<b>{safe_pdf_text(f_label)}</b>", styles["TableCellBold"]),
+                        Paragraph(safe_pdf_text(res["inspector_value"] or "— (Not Entered)"), styles["TableCell"]),
+                        Paragraph(safe_pdf_text(res["ocr_value"] or "— (Not Detected)"), styles["TableCellCode"]),
+                        Paragraph(f"<font color='{st_color}'><b>{safe_pdf_text(res['status_label'])}</b></font>", styles["TableCell"]),
+                    ])
+
+            if cmp_rows:
+                story.append(Paragraph("Inspector Input vs. OCR Package Evidence Verification", styles["SubSectionHeader"]))
+                cmp_header = [
+                    Paragraph("<b>Target Parameter</b>", styles["TableHeader"]),
+                    Paragraph("<b>Inspector Input (Authoritative)</b>", styles["TableHeader"]),
+                    Paragraph("<b>OCR Package Evidence</b>", styles["TableHeader"]),
+                    Paragraph("<b>Verification Outcome</b>", styles["TableHeader"]),
+                ]
+                cmp_table_data = [cmp_header] + cmp_rows
+                col_w_cmp = [USABLE_WIDTH * 0.28, USABLE_WIDTH * 0.26, USABLE_WIDTH * 0.26, USABLE_WIDTH * 0.20]
+                cmp_table = Table(cmp_table_data, colWidths=col_w_cmp)
+                cmp_table.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
+                    ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ]))
+                story.append(cmp_table)
+                story.append(Spacer(1, 10))
+        except Exception as e:
+            logger.warning(f"Could not generate PDF comparison table: {e}")
 
     # 6. CAPTURED EVIDENCE IMAGES (CHRONOLOGICAL ORDER)
     if evidence_items:
